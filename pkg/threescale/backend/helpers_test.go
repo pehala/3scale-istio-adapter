@@ -293,3 +293,144 @@ func Test_ValidateTransactions(t *testing.T) {
 		})
 	}
 }
+
+func TestSynchronizeState(t *testing.T) {
+	original := LimitCounter{
+		"hits": []api.UsageReport{
+			{
+				PeriodWindow: api.PeriodWindow{
+					Period: api.Day,
+				},
+			},
+			{
+				PeriodWindow: api.PeriodWindow{
+					Period: api.Week,
+				},
+			},
+			{
+				PeriodWindow: api.PeriodWindow{
+					Period: api.Month,
+				},
+			},
+			{
+				PeriodWindow: api.PeriodWindow{
+					Period: api.Year,
+				},
+			},
+		},
+	}
+
+	new := LimitCounter{
+		"hits": []api.UsageReport{
+			{
+				PeriodWindow: api.PeriodWindow{
+					Period: api.Minute,
+				},
+			},
+			{
+				PeriodWindow: api.PeriodWindow{
+					Period: api.Day,
+				},
+			},
+			{
+				PeriodWindow: api.PeriodWindow{
+					Period: api.Month,
+				},
+			},
+			{
+				PeriodWindow: api.PeriodWindow{
+					Period: api.Year,
+				},
+			},
+			{
+				PeriodWindow: api.PeriodWindow{
+					Period: api.Eternity,
+				},
+			},
+		},
+	}
+
+	expect := LimitCounter{
+		"hits": []api.UsageReport{
+			{
+				PeriodWindow: api.PeriodWindow{
+					Period: api.Minute,
+				},
+			},
+			{
+				PeriodWindow: api.PeriodWindow{
+					Period: api.Day,
+				},
+			},
+			{
+				PeriodWindow: api.PeriodWindow{
+					Period: api.Month,
+				},
+			},
+			{
+				PeriodWindow: api.PeriodWindow{
+					Period: api.Year,
+				},
+			},
+			{
+				PeriodWindow: api.PeriodWindow{
+					Period: api.Eternity,
+				},
+			},
+		},
+	}
+
+	got := synchronizeStates(original, new)
+	equals(t, expect, got)
+}
+
+func TestGetDifferenceBetweenSets(t *testing.T) {
+	sourceReports := []api.UsageReport{
+		{
+			PeriodWindow: api.PeriodWindow{
+				Period: api.Minute,
+			},
+		},
+		{
+			PeriodWindow: api.PeriodWindow{
+				Period: api.Day,
+			},
+		},
+		{
+			PeriodWindow: api.PeriodWindow{
+				Period: api.Year,
+			},
+		},
+		{
+			PeriodWindow: api.PeriodWindow{
+				Period: api.Eternity,
+			},
+		},
+	}
+
+	destinationReports := []api.UsageReport{
+		{
+			PeriodWindow: api.PeriodWindow{
+				Period: api.Minute,
+			},
+		},
+		{
+			PeriodWindow: api.PeriodWindow{
+				Period: api.Month,
+			},
+		},
+		{
+			PeriodWindow: api.PeriodWindow{
+				Period: api.Year,
+			},
+		},
+	}
+
+	expect := []int{1, 3}
+	got := getDifferenceBetweenSets(sourceReports, destinationReports)
+	equals(t, expect, got)
+
+	expect = []int{1}
+	got = getDifferenceBetweenSets(destinationReports, sourceReports)
+	equals(t, expect, got)
+}
