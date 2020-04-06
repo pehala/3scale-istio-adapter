@@ -380,7 +380,7 @@ func TestSynchronizeState(t *testing.T) {
 		},
 	}
 
-	got := synchronizeStates(original, new)
+	got, _ := synchronizeStates(original, new)
 	equals(t, expect, got)
 }
 

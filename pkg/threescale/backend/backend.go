@@ -3,7 +3,6 @@ package backend
 import (
 	"fmt"
 	"net"
-	"reflect"
 	"sync"
 
 	"github.com/3scale/3scale-go-client/threescale"
@@ -589,7 +588,8 @@ func (a *Application) adjustLocalState(flushingState *handledApp, remoteState Li
 	added, removed := computeAddedAndRemovedMetrics(a.LocalState, a.RemoteState)
 
 	// sync state by pruning added and removed rate limiting periods from known metrics
-	a.LocalState = synchronizeStates(a.LocalState, a.RemoteState)
+	var stateDeltas map[string]stateChanges
+	a.LocalState, stateDeltas = synchronizeStates(a.LocalState, a.RemoteState)
 
 	// if we found a new metric in the remote state, we must add it to known local state
 	for _, newMetric := range added {
@@ -640,7 +640,15 @@ func (a *Application) adjustLocalState(flushingState *handledApp, remoteState Li
 		lowestLocalGranularity := counters[0]
 		lowestSnappedGranularity := flushingState.snapshot.LocalState[metric][0]
 		lowestRemoteGranularity := a.RemoteState[metric][0]
-		if reflect.DeepEqual(lowestLocalGranularity, lowestRemoteGranularity) {
+
+		var wasNewlyAdded bool
+		for _, addedLimit := range stateDeltas[metric].added {
+			if addedLimit.PeriodWindow.Period == lowestLocalGranularity.PeriodWindow.Period {
+				wasNewlyAdded = true
+				break
+			}
+		}
+		if wasNewlyAdded {
 			// if these are equal, we can say we have imported this new lowest limit
 			// from 3scale and we dont need to do anything further with it
 			continue

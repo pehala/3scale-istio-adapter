@@ -132,32 +132,43 @@ func computeAddedAndRemovedMetrics(src, dst LimitCounter) (added, removed []stri
 	return added, removed
 }
 
+type stateChanges struct {
+	added   []api.UsageReport
+	removed []api.UsageReport
+}
+
 // synchronizeState updates the original limit counter based on the current state of the new counter
 // any additional limits in the new counter will be added to the original and any existing limits in the
 // original that have been removed from the new state, will be removed from the source.
-func synchronizeStates(original, new LimitCounter) LimitCounter {
+func synchronizeStates(original, new LimitCounter) (LimitCounter, map[string]stateChanges) {
+	changes := make(map[string]stateChanges)
 	for metric, reports := range original {
 		if newReports, contains := new[metric]; contains {
+			metricChanges := changes[metric]
 			// we first grab what has been removed from the new state because we need to prune these
 			getRemovals := getDifferenceBetweenSets(reports, newReports)
 			// do a reverse of the sorted slice so we can safely prune from the back of the list without
 			// affecting the order of our original state, those entries may be valid so take from the tail
 			sort.Reverse(sort.IntSlice(getRemovals))
 			for _, i := range getRemovals {
+				// add to the list of limits removed from this metric
+				metricChanges.removed = append(metricChanges.removed, original[metric][i])
 				// remove the element at index i
 				original[metric] = append(original[metric][:i], original[metric][i+1:]...)
 			}
 
-			// we npw can grab what was added
+			// we now can grab what was added
 			getAdditions := getDifferenceBetweenSets(newReports, reports)
 			for _, i := range getAdditions {
+				// add to the list of reports added to this metric
+				metricChanges.added = append(metricChanges.added, new[metric][i])
 				original[metric] = append(original[metric], new[metric][i])
 			}
 
 		}
 	}
 	api.UsageReports(original).OrderByAscendingGranularity()
-	return original
+	return original, changes
 }
 
 // getDifferenceBetweenSets returns the index of the usage reports whose time periods exist
