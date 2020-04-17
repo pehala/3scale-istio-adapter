@@ -186,7 +186,7 @@ func (m Manager) cachedAuthRep(backendURL string, request BackendRequest) (*Back
 	cachedBackend, knownBackend := m.cachedBackends[backendURL]
 	if !knownBackend {
 		// try to create a cache if we haven't seen this backend before
-		cachedBackend, err = backend.NewBackend(backendURL, nil)
+		cachedBackend, err = m.newCachedBackend(backendURL)
 		if err != nil {
 			//todo(pgough) - add logging when we accept a logger
 			return m.passthroughAuthRep(backendURL, request)
@@ -208,6 +208,25 @@ func (m Manager) authRep(client threescale.Client, request BackendRequest) (*Bac
 		return nil, err
 	}
 	return &BackendResponse{Authorized: res.Authorized, RejectedReason: res.ErrorCode}, nil
+}
+
+// newCachedBackend creates a new backend and start the flushing process in the background
+func (m Manager) newCachedBackend(url string) (*backend.Backend, error) {
+	cachedBackend, err := backend.NewBackend(url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	ticker := time.NewTicker(time.Second * 15)
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				cachedBackend.Flush()
+			}
+		}
+	}()
+	return cachedBackend, nil
 }
 
 func (m Manager) fetchSystemConfigFromCache(systemURL string, request SystemRequest) (client.ProxyConfig, error) {
